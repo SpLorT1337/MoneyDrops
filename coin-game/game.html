@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Money Drops</title>
+
+<!-- 🖼️ ИКОНКА ВКЛАДКИ (встроена как SVG — не нужен файл!) -->
+<link rel="icon" type="image/png" href="5000.png">
+<link rel="apple-touch-icon" href="5000.png">
+
+<!-- 📱 ПРЕВЬЮ ПРИ ШАРИНГЕ (замени username на свой GitHub логин) -->
+<meta property="og:title" content="Монетки до 5000₽ — Играй бесплатно!">
+<meta property="og:description" content="Бросай монетки, собирай купюры, прокачивай клики! Календарь наград и батл-пасс!">
+<meta property="og:image" content="https://username.github.io/coin-game/preview.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#ffd700">
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1a2a3a, #0d1b2a);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+  }
+  .game {
+    display: grid;
+    grid-template-columns: 260px 420px 280px;
+    gap: 15px;
+    max-width: 1100px;
+  }
+  .panel {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 15px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: #ffd700; border-radius: 3px; }
+  h2 { font-size: 16px; margin-bottom: 10px; color: #ffd700; }
+  h3 { font-size: 13px; margin: 10px 0 4px; color: #8ecae6; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 3px; }
+  .stat { font-size: 13px; margin: 4px 0; }
+  .energy-bar, .xp-bar, .bp-bar {
+    width: 100%; height: 16px;
+    background: #333; border-radius: 8px;
+    overflow: hidden; margin: 5px 0;
+  }
+  .energy-fill { height: 100%; background: linear-gradient(90deg, #ff6b6b, #ffd700); transition: width 0.3s; }
+  .xp-fill { height: 100%; background: linear-gradient(90deg, #00a8ff, #00ff88); transition: width 0.3s; }
+  .bp-fill { height: 100%; background: linear-gradient(90deg, #ff00ff, #ffd700); transition: width 0.3s; }
+  .canvas-wrapper { position: relative; }
+  #gameCanvas {
+    display: block; width: 420px; height: 600px;
+    background: #1a3a5a; border: 3px solid #ffd700; border-radius: 12px;
+  }
+  button {
+    width: 100%; padding: 8px; margin: 4px 0;
+    background: linear-gradient(135deg, #4a7c9a, #2a5c7a);
+    color: white; border: 1px solid #8ecae6; border-radius: 6px;
+    cursor: pointer; font-size: 11px; transition: all 0.2s;
+  }
+  button:hover:not(:disabled) { transform: scale(1.03); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.buy { background: linear-gradient(135deg, #2a9d8f, #1a6d5f); }
+  button.booster { background: linear-gradient(135deg, #ff6b9d, #c44569); border-color: #ff8fab; }
+  button.prestige { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; font-weight: bold; }
+  button.tab-btn { background: linear-gradient(135deg, #6c5ce7, #a29bfe); font-weight: bold; }
+  .drop-btn {
+    width: 100%; padding: 15px; margin-top: 10px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8c00);
+    color: white; border: 2px solid #ffd700; border-radius: 8px;
+    cursor: pointer; font-size: 16px; font-weight: bold;
+  }
+  .drop-btn:hover { transform: scale(1.05); }
+  .ach { font-size: 11px; padding: 4px; margin: 2px 0; background: rgba(0,0,0,0.3); border-radius: 4px; }
+  .ach.done { background: rgba(255,215,0,0.2); color: #ffd700; }
+  .quest { font-size: 11px; padding: 6px; margin: 3px 0; background: rgba(0,100,200,0.2); border-radius: 4px; border-left: 3px solid #00a8ff; }
+  .quest.done { background: rgba(0,200,100,0.2); border-left-color: #00ff88; }
+  .next-coin-preview {
+    text-align: center; padding: 8px;
+    background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 10px;
+  }
+  #toast {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #000; font-weight: bold; border-radius: 8px;
+    opacity: 0; pointer-events: none; transition: opacity 0.4s; z-index: 100;
+  }
+  #toast.show { opacity: 1; }
+  #billOverlay, .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: none; justify-content: center; align-items: center;
+    z-index: 200; flex-direction: column;
+  }
+  #billOverlay.show, .modal-overlay.show { display: flex; }
+  #billImage {
+    max-width: 400px; max-height: 300px;
+    animation: billAppear 0.6s ease-out;
+    filter: drop-shadow(0 0 30px #ffd700);
+  }
+  @keyframes billAppear {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    60% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes billFly {
+    0% { transform: scale(1) translate(0, 0); opacity: 1; }
+    100% { transform: scale(0.1) translate(-600px, 400px); opacity: 0; }
+  }
+  #billImage.fly { animation: billFly 1.2s ease-in forwards; }
+  #billText {
+    color: #ffd700; font-size: 36px; font-weight: bold;
+    margin-top: 20px; text-shadow: 0 0 20px #ffd700;
+  }
+  .confetti {
+    position: absolute; width: 10px; height: 10px;
+    animation: confettiFall 2s linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  .level-badge {
+    display: inline-block; padding: 2px 8px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #000; border-radius: 10px; font-size: 11px; font-weight: bold;
+  }
+  .modal-content {
+    background: linear-gradient(135deg, #1a2a3a, #0d1b2a);
+    border: 2px solid #ffd700;
+    border-radius: 16px;
+    padding: 25px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  .modal-content::-webkit-scrollbar { width: 6px; }
+  .modal-content::-webkit-scrollbar-thumb { background: #ffd700; border-radius: 3px; }
+  .modal-close {
+    position: absolute; top: 10px; right: 15px;
+    background: #ff6b6b; border: none; color: white;
+    width: 30px; height: 30px; border-radius: 50%;
+    font-size: 18px; cursor: pointer;
+  }
+  .modal-title {
+    font-size: 24px; color: #ffd700; margin-bottom: 15px;
+    text-align: center; text-shadow: 0 0 10px #ffd700;
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin: 15px 0;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    padding: 4px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cal-day:hover:not(.locked):not(.claimed) { transform: scale(1.05); border-color: #ffd700; }
+  .cal-day.today { border: 2px solid #ffd700; background: rgba(255,215,0,0.15); }
+  .cal-day.claimed { background: rgba(0,200,100,0.2); border-color: #00ff88; }
+  .cal-day.locked { opacity: 0.4; cursor: not-allowed; }
+  .cal-day .day-num { font-weight: bold; font-size: 14px; }
+  .cal-day .day-reward { font-size: 9px; color: #8ecae6; margin-top: 2px; }
+  .cal-day .claim-btn {
+    position: absolute; bottom: 2px; right: 2px;
+    background: #ffd700; color: #000;
+    border: none; border-radius: 50%;
+    width: 18px; height: 18px; font-size: 10px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .bp-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 15px;
+  }
+  .bp-level {
+    font-size: 28px; color: #ffd700; font-weight: bold;
+  }
+  .bp-rewards {
+    display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;
+    margin-bottom: 15px;
+  }
+  .bp-reward {
+    min-width: 80px; padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 8px; text-align: center;
+    font-size: 11px;
+  }
+  .bp-reward.unlocked { border-color: #ffd700; background: rgba(255,215,0,0.1); }
+  .bp-reward.current { border-color: #00a8ff; background: rgba(0,168,255,0.1); animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 5px #00a8ff; }
+    50% { box-shadow: 0 0 20px #00a8ff; }
+  }
+  .bp-quest {
+    padding: 8px; margin: 4px 0;
+    background: rgba(108,92,231,0.15);
+    border-left: 3px solid #6c5ce7;
+    border-radius: 4px; font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .bp-quest.done { background: rgba(0,200,100,0.15); border-left-color: #00ff88; }
+  .bp-quest .progress { font-size: 11px; color: #8ecae6; }
+  .welcome-gift {
+    text-align: center; padding: 20px;
+  }
+  .welcome-gift .gift-box {
+    font-size: 80px; margin: 20px 0;
+    animation: bounce 1s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+  .welcome-gift .gift-list {
+    text-align: left; margin: 20px 0;
+    font-size: 14px; line-height: 1.8;
+  }
+  .welcome-gift .gift-list span { color: #ffd700; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="billOverlay">
+  <img id="billImage" src="5000.png" alt="5000₽">
+  <div id="billText">💰 5000₽!</div>
+</div>
+
+<div class="modal-overlay" id="calendarModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal('calendarModal')">×</button>
+    <div class="modal-title">📅 Ежедневные награды</div>
+    <div style="text-align:center;color:#8ecae6;margin-bottom:10px">Заходи каждый день и получай награды!</div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div style="text-align:center;color:#aaa;font-size:12px">Сегодня: <span id="calToday" style="color:#ffd700"></span></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bpModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal('bpModal')">×</button>
+    <div class="modal-title">🏆 Батл-пасс</div>
+    <div class="bp-header">
+      <div>
+        <div style="font-size:12px;color:#8ecae6">Уровень</div>
+        <div class="bp-level" id="bpLevel">1</div>
+      </div>
+      <div style="flex:1;margin-left:20px">
+        <div style="font-size:12px;color:#8ecae6">XP: <span id="bpXp">0</span> / <span id="bpXpNeeded">100</span></div>
+        <div class="bp-bar"><div class="bp-fill" id="bpBar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#ffd700;margin:10px 0">🎁 Награды:</div>
+    <div class="bp-rewards" id="bpRewards"></div>
+    <div style="font-size:13px;color:#ffd700;margin:15px 0 10px">📋 Задания на сегодня:</div>
+    <div id="bpQuests"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="welcomeModal">
+  <div class="modal-content">
+    <div class="welcome-gift">
+      <div class="gift-box">🎁</div>
+      <div class="modal-title">Добро пожаловать!</div>
+      <div class="gift-list">
+        <div> <span>+200 энергии</span> на старт</div>
+        <div>🔋 <span>Макс. энергия 200</span></div>
+        <div>🖱️ <span>Клик улучшен</span> до 2 ур.</div>
+        <div>🤖 <span>Автокликер 1 ур.</span> в подарок</div>
+        <div>💰 <span>500₽</span> стартовый капитал</div>
+        <div>📋 <span>Лёгкие задания</span> для старта</div>
+      </div>
+      <button class="prestige" onclick="claimWelcome()" style="font-size:16px;padding:12px">🎉 ЗАБРАТЬ ПОДАРОК!</button>
+    </div>
+  </div>
+</div>
+
+<div class="game">
+  <div class="panel">
+    <h2>⚡ Энергия</h2>
+    <div class="stat"><span id="energy">100</span> / <span id="maxEnergy">100</span></div>
+    <div class="energy-bar"><div class="energy-fill" id="energyBar" style="width:100%"></div></div>
+    <div class="stat" style="font-size:11px;color:#aaa">+1 каждые <span id="regenRate">30</span> сек</div>
+
+    <h2 style="margin-top:15px">⭐ Уровень <span class="level-badge" id="playerLevel">1</span></h2>
+    <div class="stat" style="font-size:11px">Опыт: <span id="xp">0</span> / <span id="xpNeeded">100</span></div>
+    <div class="xp-bar"><div class="xp-fill" id="xpBar" style="width:0%"></div></div>
+
+    <h2 style="margin-top:15px"> Кошелёк</h2>
+    <div class="stat" style="font-size:20px;color:#ffd700"><span id="wallet">0</span> ₽</div>
+    <div class="stat" style="font-size:11px;color:#aaa">Купюр 5000₽: <span id="bills">0</span></div>
+    <div class="stat" style="font-size:11px;color:#aaa">Престиж: x<span id="prestigeMult">1.0</span></div>
+
+    <h2 style="margin-top:15px"> Следующая</h2>
+    <div class="next-coin-preview">
+      <img id="nextCoinImg" src="1.png" style="max-width:60px;max-height:60px;">
+      <div style="font-size:11px;color:#aaa">Стоимость: <span id="dropCost">5</span>⚡</div>
+    </div>
+
+    <button class="tab-btn" onclick="openModal('calendarModal')">📅 Календарь наград</button>
+    <button class="tab-btn" onclick="openModal('bpModal')">🏆 Батл-пасс</button>
+
+    <h2 style="margin-top:15px">📋 Задания</h2>
+    <div id="quests"></div>
+
+    <h2 style="margin-top:15px">🏆 Достижения</h2>
+    <div id="achievements"></div>
+  </div>
+
+  <div>
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="420" height="600"></canvas>
+    </div>
+    <button class="drop-btn" id="dropBtn">🎯 БРОСИТЬ МОНЕТКУ</button>
+    <div style="text-align:center;margin-top:8px;font-size:12px;color:#aaa">Нажимай кнопку или пробел</div>
+  </div>
+
+  <div class="panel">
+    <h2>🛒 Магазин</h2>
+    <h3>⚡ Энергия</h3>
+    <button class="buy" onclick="buyEnergy(20, 10)">+20⚡ за 10₽</button>
+    <button class="buy" onclick="buyEnergy(100, 40)">+100⚡ за 40₽</button>
+
+    <h3>🖱️ Улучшения клика</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="clickLvl">1</span></div>
+    <div class="stat" style="font-size:11px">Цена броска: <span id="clickCost">5</span>⚡</div>
+    <button onclick="upgradeClick()">Улучшить (<span id="clickPrice">50</span>₽)</button>
+
+    <h3>🤖 Автокликер</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="autoLvl">0</span></div>
+    <div class="stat" style="font-size:11px">Бросков/сек: <span id="autoRate">0</span></div>
+    <button onclick="upgradeAuto()">Купить (<span id="autoPrice">200</span>₽)</button>
+
+    <h3> Макс. энергия</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="maxEngLvl">1</span></div>
+    <div class="stat" style="font-size:11px">Макс: <span id="maxEngVal">100</span>⚡</div>
+    <button onclick="upgradeMaxEnergy()">Улучшить (<span id="maxEngPrice">100</span>₽)</button>
+
+    <h3>⚡ Регенерация</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="regenLvl">1</span></div>
+    <div class="stat" style="font-size:11px">Интервал: <span id="regenVal">30</span> сек</div>
+    <button onclick="upgradeRegen()">Улучшить (<span id="regenPrice">150</span>₽)</button>
+
+    <h3>🎲 Критический бросок</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="critLvl">0</span></div>
+    <div class="stat" style="font-size:11px">Шанс: <span id="critChance">0</span>%</div>
+    <button onclick="upgradeCrit()">Купить (<span id="critPrice">300</span>₽)</button>
+
+    <h3>🧲 Магнит</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="magnetLvl">0</span></div>
+    <div class="stat" style="font-size:11px">Радиус: <span id="magnetRange">0</span>px</div>
+    <button onclick="upgradeMagnet()">Купить (<span id="magnetPrice">500</span>₽)</button>
+
+    <h3>✨ Двойное слияние</h3>
+    <div class="stat" style="font-size:11px">Уровень: <span id="doubleLvl">0</span></div>
+    <div class="stat" style="font-size:11px">Шанс: <span id="doubleChance">0</span>%</div>
+    <button onclick="upgradeDouble()">Купить (<span id="doublePrice">1000</span>₽)</button>
+
+    <h3>🚀 Бустеры</h3>
+    <button class="booster" onclick="activateBooster('x2energy')">x2 Энергия (60с) — 50₽</button>
+    <button class="booster" onclick="activateBooster('infinite')">Безлимит (30с) — 100₽</button>
+    <button class="booster" onclick="activateBooster('rain')">Золотой дождь — 200₽</button>
+
+    <h3>👑 Престиж</h3>
+    <div class="stat" style="font-size:11px">Нужно купюр: 10</div>
+    <button class="prestige" onclick="doPrestige()" id="btnPrestige">Престиж (0/10)</button>
+
+    <h3> Статистика</h3>
+    <div class="stat" style="font-size:11px">Бросков: <span id="totalDrops">0</span></div>
+    <div class="stat" style="font-size:11px">Слияний: <span id="totalMerges">0</span></div>
+    <div class="stat" style="font-size:11px">Макс. номинал: <span id="maxCoin">1₽</span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 420, H = 600;
+const TABLE_Y = 520;
+
+const DENOMS = [
+  { value: 1,    name: '1₽',    img: '1.png',    isCoin: true,  radius: 22, color: '#b87333' },
+  { value: 2,    name: '2₽',    img: '2.png',    isCoin: true,  radius: 24, color: '#c0c0c0' },
+  { value: 5,    name: '5₽',    img: '5.png',    isCoin: true,  radius: 26, color: '#cd7f32' },
+  { value: 10,   name: '10₽',   img: '10.png',   isCoin: true,  radius: 28, color: '#e6c200' },
+  { value: 50,   name: '50₽',   img: '50.png',   isCoin: false, width: 70, height: 35, color: '#8b4513' },
+  { value: 100,  name: '100₽',  img: '100.png',  isCoin: false, width: 75, height: 38, color: '#9370db' },
+  { value: 200,  name: '200₽',  img: '200.png',  isCoin: false, width: 80, height: 40, color: '#3cb371' },
+  { value: 500,  name: '500₽',  img: '500.png',  isCoin: false, width: 85, height: 42, color: '#8b008b' },
+  { value: 1000, name: '1000₽', img: '1000.png', isCoin: false, width: 90, height: 45, color: '#0066cc' },
+  { value: 2000, name: '2000₽', img: '2000.png', isCoin: false, width: 95, height: 47, color: '#00a896' },
+  { value: 5000, name: '5000₽', img: '5000.png', isCoin: false, width: 100, height: 50, color: '#ff8c00' },
+];
+
+const images = {};
+DENOMS.forEach(d => {
+  const img = new Image();
+  img.src = d.img;
+  img.onerror = () => { console.log('⚠️ Не найдено: ' + d.img + ' — будет нарисовано'); };
+  images[d.value] = img;
+});
+
+const defaultState = {
+  energy: 100, maxEnergy: 100,
+  wallet: 0, bills: 0,
+  totalDrops: 0, totalMerges: 0, maxCoinTier: 0,
+  xp: 0, level: 1,
+  prestige: 0, prestigeMult: 1.0,
+  clickLevel: 1, autoLevel: 0, maxEnergyLevel: 1, regenLevel: 1,
+  critLevel: 0, magnetLevel: 0, doubleLevel: 0,
+  boosters: { x2energy: 0, infinite: 0, rain: 0 },
+  quests: [
+    { id: 'drops5', name: 'Сделай 5 бросков', target: 5, progress: 0, reward: 30, done: false },
+    { id: 'merge3', name: 'Собери 3 слияния', target: 3, progress: 0, reward: 50, done: false },
+    { id: 'bill1', name: 'Получи 1 купюру 5000₽', target: 1, progress: 0, reward: 150, done: false }
+  ],
+  achievements: {},
+  coins: [], particles: [],
+  dropX: W / 2, showBillAnimation: false, lastRegen: Date.now(),
+  welcomeClaimed: false
+};
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('coinGame');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...defaultState, ...parsed, boosters: { ...defaultState.boosters, ...(parsed.boosters || {}) } };
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(defaultState));
+}
+
+function saveState() {
+  try {
+    const toSave = { ...state, coins: [], particles: [] };
+    localStorage.setItem('coinGame', JSON.stringify(toSave));
+  } catch(e) {}
+}
+setInterval(saveState, 5000);
+
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getDaysInMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+}
+function getDayReward(day) {
+  const rewards = [
+    { type: 'energy', amount: 20, label: '+20⚡' },
+    { type: 'energy', amount: 30, label: '+30⚡' },
+    { type: 'money', amount: 50, label: '+50₽' },
+    { type: 'energy', amount: 40, label: '+40⚡' },
+    { type: 'booster', booster: 'x2energy', label: 'x2 60с' },
+    { type: 'energy', amount: 50, label: '+50⚡' },
+    { type: 'money', amount: 100, label: '+100₽' },
+    { type: 'energy', amount: 60, label: '+60⚡' },
+    { type: 'booster', booster: 'rain', label: '🌧️ Дождь' },
+    { type: 'energy', amount: 80, label: '+80⚡' },
+    { type: 'money', amount: 200, label: '+200₽' },
+    { type: 'energy', amount: 100, label: '+100⚡' },
+    { type: 'booster', booster: 'infinite', label: '∞ 30с' },
+    { type: 'energy', amount: 120, label: '+120' },
+    { type: 'money', amount: 300, label: '+300₽' },
+    { type: 'energy', amount: 150, label: '+150⚡' },
+    { type: 'booster', booster: 'x2energy', label: 'x2⚡ 60с' },
+    { type: 'energy', amount: 180, label: '+180' },
+    { type: 'money', amount: 500, label: '+500₽' },
+    { type: 'energy', amount: 200, label: '+200⚡' },
+    { type: 'booster', booster: 'rain', label: '️ Дождь' },
+    { type: 'energy', amount: 250, label: '+250⚡' },
+    { type: 'money', amount: 700, label: '+700₽' },
+    { type: 'energy', amount: 300, label: '+300⚡' },
+    { type: 'booster', booster: 'infinite', label: '∞ 30с' },
+    { type: 'energy', amount: 350, label: '+350' },
+    { type: 'money', amount: 1000, label: '+1000₽' },
+    { type: 'energy', amount: 400, label: '+400⚡' },
+    { type: 'booster', booster: 'rain', label: '🌧️ Дождь' },
+    { type: 'energy', amount: 500, label: '+500⚡' },
+  ];
+  return rewards[(day - 1) % rewards.length];
+}
+
+let calendarData = loadCalendar();
+function loadCalendar() {
+  try {
+    const saved = localStorage.getItem('calendarData');
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return { claimedDays: [], lastVisit: null };
+}
+function saveCalendar() {
+  try { localStorage.setItem('calendarData', JSON.stringify(calendarData)); } catch(e) {}
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  const days = getDaysInMonth();
+  const today = new Date().getDate();
+  document.getElementById('calToday').textContent = `${today} число`;
+  grid.innerHTML = '';
+  for (let d = 1; d <= days; d++) {
+    const reward = getDayReward(d);
+    const dayEl = document.createElement('div');
+    dayEl.className = 'cal-day';
+    const dayKey = `${getTodayStr().slice(0,8)}${String(d).padStart(2,'0')}`;
+    const claimed = calendarData.claimedDays.includes(dayKey);
+    const isToday = d === today;
+    const isFuture = d > today;
+    if (claimed) dayEl.classList.add('claimed');
+    if (isToday && !claimed) dayEl.classList.add('today');
+    if (isFuture) dayEl.classList.add('locked');
+    dayEl.innerHTML = `
+      <div class="day-num">${d}</div>
+      <div class="day-reward">${reward.label}</div>
+      ${isToday && !claimed ? '<button class="claim-btn" onclick="claimDay('+d+')">✓</button>' : ''}
+      ${claimed ? '<div style="color:#00ff88;font-size:14px">✓</div>' : ''}
+    `;
+    grid.appendChild(dayEl);
+  }
+}
+
+function claimDay(day) {
+  const today = new Date().getDate();
+  if (day !== today) return;
+  const dayKey = `${getTodayStr().slice(0,8)}${String(day).padStart(2,'0')}`;
+  if (calendarData.claimedDays.includes(dayKey)) return;
+  const reward = getDayReward(day);
+  applyReward(reward);
+  calendarData.claimedDays.push(dayKey);
+  calendarData.lastVisit = getTodayStr();
+  saveCalendar();
+  renderCalendar();
+  toast(`🎁 Награда за ${day} число: ${reward.label}!`);
+}
+
+function applyReward(reward) {
+  if (reward.type === 'energy') {
+    state.energy = Math.min(state.maxEnergy, state.energy + reward.amount);
+  } else if (reward.type === 'money') {
+    state.wallet += reward.amount;
+  } else if (reward.type === 'booster') {
+    const durations = { x2energy: 60, infinite: 30, rain: 20 };
+    state.boosters[reward.booster] = durations[reward.booster];
+    if (reward.booster === 'rain') {
+      for (let i = 0; i < 10; i++) {
+        setTimeout(() => {
+          const x = Math.random() * (W - 60) + 30;
+          state.coins.push(new GameItem(x, 30, 0));
+        }, i * 200);
+      }
+    }
+  }
+  updateUI();
+}
+
+function checkDailyLogin() {
+  const today = getTodayStr();
+  if (calendarData.lastVisit !== today) {
+    calendarData.lastVisit = today;
+    saveCalendar();
+  }
+}
+
+const BP_MAX_LEVEL = 30;
+const BP_XP_PER_LEVEL = 100;
+const BP_REWARDS = [
+  { level: 1, type: 'energy', amount: 50, label: '+50⚡' },
+  { level: 2, type: 'money', amount: 100, label: '+100₽' },
+  { level: 3, type: 'energy', amount: 100, label: '+100⚡' },
+  { level: 5, type: 'booster', booster: 'x2energy', label: 'x2' },
+  { level: 7, type: 'money', amount: 300, label: '+300₽' },
+  { level: 10, type: 'energy', amount: 300, label: '+300' },
+  { level: 12, type: 'booster', booster: 'rain', label: '🌧️ Дождь' },
+  { level: 15, type: 'money', amount: 500, label: '+500₽' },
+  { level: 18, type: 'energy', amount: 500, label: '+500⚡' },
+  { level: 20, type: 'booster', booster: 'infinite', label: '∞ 30с' },
+  { level: 25, type: 'money', amount: 1000, label: '+1000₽' },
+  { level: 30, type: 'energy', amount: 1000, label: '+1000' },
+];
+
+const BP_QUEST_POOL = [
+  { id: 'bp_drops10', name: 'Брось 10 монеток', target: 10, xp: 20 },
+  { id: 'bp_drops25', name: 'Брось 25 монеток', target: 25, xp: 40 },
+  { id: 'bp_drops50', name: 'Брось 50 монеток', target: 50, xp: 70 },
+  { id: 'bp_merge3', name: 'Собери 3 слияния', target: 3, xp: 25 },
+  { id: 'bp_merge5', name: 'Собери 5 слияний', target: 5, xp: 45 },
+  { id: 'bp_merge10', name: 'Собери 10 слияний', target: 10, xp: 80 },
+  { id: 'bp_energy50', name: 'Потрать 50 энергии', target: 50, xp: 30 },
+  { id: 'bp_energy100', name: 'Потрать 100 энергии', target: 100, xp: 60 },
+  { id: 'bp_money100', name: 'Потрать 100₽ в магазине', target: 100, xp: 35 },
+  { id: 'bp_money500', name: 'Потрать 500₽ в магазине', target: 500, xp: 70 },
+  { id: 'bp_coin10', name: 'Получи монету 10₽', target: 1, xp: 30 },
+  { id: 'bp_coin50', name: 'Получи монету 50₽', target: 1, xp: 50 },
+  { id: 'bp_coin100', name: 'Получи монету 100₽', target: 1, xp: 80 },
+  { id: 'bp_coin500', name: 'Получи монету 500₽', target: 1, xp: 120 },
+  { id: 'bp_booster', name: 'Активируй бустер', target: 1, xp: 40 },
+  { id: 'bp_upgrade', name: 'Купи улучшение', target: 1, xp: 35 },
+  { id: 'bp_drops100', name: 'Брось 100 монеток', target: 100, xp: 120 },
+  { id: 'bp_merge20', name: 'Собери 20 слияний', target: 20, xp: 150 },
+  { id: 'bp_energy200', name: 'Потрать 200 энергии', target: 200, xp: 100 },
+  { id: 'bp_money1000', name: 'Потрать 1000₽', target: 1000, xp: 120 },
+  { id: 'bp_coin1000', name: 'Получи монету 1000₽', target: 1, xp: 200 },
+  { id: 'bp_drops200', name: 'Брось 200 монеток', target: 200, xp: 200 },
+  { id: 'bp_merge50', name: 'Собери 50 слияний', target: 50, xp: 300 },
+  { id: 'bp_energy500', name: 'Потрать 500 энергии', target: 500, xp: 250 },
+  { id: 'bp_money2000', name: 'Потрать 2000₽', target: 2000, xp: 250 },
+];
+
+let bpData = loadBP();
+function loadBP() {
+  try {
+    const saved = localStorage.getItem('bpData');
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return { level: 1, xp: 0, quests: [], lastDate: null, claimedRewards: [] };
+}
+function saveBP() {
+  try { localStorage.setItem('bpData', JSON.stringify(bpData)); } catch(e) {}
+}
+
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+function generateDailyQuests() {
+  const today = getTodayStr();
+  if (bpData.lastDate === today && bpData.quests.length > 0) return;
+  const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
+  const rng = seededRandom(seed);
+  const shuffled = [...BP_QUEST_POOL].sort(() => rng() - 0.5);
+  bpData.quests = shuffled.slice(0, 8).map(q => ({ ...q, progress: 0, done: false }));
+  bpData.lastDate = today;
+  saveBP();
+}
+
+function updateBPQuest(questId, amount) {
+  const quest = bpData.quests.find(q => q.id === questId);
+  if (quest && !quest.done) {
+    quest.progress += amount;
+    if (quest.progress >= quest.target) {
+      quest.progress = quest.target;
+      quest.done = true;
+      addBPXp(quest.xp);
+      toast(`✅ Задание БП выполнено! +${quest.xp} XP`);
+    }
+    renderBPQuests();
+    saveBP();
+  }
+}
+
+function addBPXp(amount) {
+  bpData.xp += amount;
+  while (bpData.xp >= BP_XP_PER_LEVEL && bpData.level < BP_MAX_LEVEL) {
+    bpData.xp -= BP_XP_PER_LEVEL;
+    bpData.level++;
+    const reward = BP_REWARDS.find(r => r.level === bpData.level);
+    if (reward && !bpData.claimedRewards.includes(bpData.level)) {
+      bpData.claimedRewards.push(bpData.level);
+      applyReward(reward);
+      toast(` Уровень БП ${bpData.level}! Награда: ${reward.label}`);
+    }
+  }
+  if (bpData.level >= BP_MAX_LEVEL) bpData.xp = BP_XP_PER_LEVEL;
+  saveBP();
+  renderBP();
+}
+
+function renderBP() {
+  document.getElementById('bpLevel').textContent = bpData.level;
+  document.getElementById('bpXp').textContent = bpData.xp;
+  document.getElementById('bpXpNeeded').textContent = BP_XP_PER_LEVEL;
+  document.getElementById('bpBar').style.width = (bpData.xp / BP_XP_PER_LEVEL * 100) + '%';
+  const rewardsEl = document.getElementById('bpRewards');
+  rewardsEl.innerHTML = '';
+  BP_REWARDS.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'bp-reward';
+    if (bpData.claimedRewards.includes(r.level)) el.classList.add('unlocked');
+    if (r.level === bpData.level + 1) el.classList.add('current');
+    el.innerHTML = `<div style="font-size:10px;color:#8ecae6">Ур.${r.level}</div><div>${r.label}</div>`;
+    rewardsEl.appendChild(el);
+  });
+  renderBPQuests();
+}
+
+function renderBPQuests() {
+  const el = document.getElementById('bpQuests');
+  el.innerHTML = bpData.quests.map(q =>
+    `<div class="bp-quest ${q.done ? 'done' : ''}">
+      <div>${q.name}</div>
+      <div class="progress">${Math.min(q.progress, q.target)}/${q.target} | +${q.xp}XP ${q.done ? '✅' : ''}</div>
+    </div>`
+  ).join('');
+}
+
+class GameItem {
+  constructor(x, y, tier) {
+    this.x = x; this.y = y;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = 0;
+    this.tier = tier;
+    this.denom = DENOMS[tier];
+    this.isCoin = this.denom.isCoin;
+    this.radius = this.denom.radius || 0;
+    this.width = this.denom.width || 0;
+    this.height = this.denom.height || 0;
+    this.color = this.denom.color;
+    this.merging = false;
+    this.rotation = 0;
+    this.rotSpeed = this.isCoin ? (Math.random() - 0.5) * 0.15 : 0;
+  }
+  update() {
+    if (this.merging) return;
+    this.vy += 0.3;
+    this.x += this.vx; this.y += this.vy;
+    this.rotation += this.rotSpeed;
+    if (state.magnetLevel > 0) {
+      const range = state.magnetLevel * 50;
+      for (const other of state.coins) {
+        if (other === this || other.merging) continue;
+        const dx = other.x - this.x, dy = other.y - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < range && dist > 0) {
+          const force = (range - dist) / range * 0.1;
+          this.vx += (dx/dist) * force;
+          this.vy += (dy/dist) * force;
+        }
+      }
+    }
+    if (this.isCoin) {
+      if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.5; }
+      if (this.x + this.radius > W) { this.x = W - this.radius; this.vx *= -0.5; }
+      if (this.y + this.radius > TABLE_Y) {
+        this.y = TABLE_Y - this.radius;
+        this.vy *= -0.4; this.vx *= 0.8; this.rotSpeed *= 0.9;
+        if (Math.abs(this.vy) < 1) this.vy = 0;
+      }
+    } else {
+      const hw = this.width/2, hh = this.height/2;
+      if (this.x - hw < 0) { this.x = hw; this.vx *= -0.5; }
+      if (this.x + hw > W) { this.x = W - hw; this.vx *= -0.5; }
+      if (this.y + hh > TABLE_Y) {
+        this.y = TABLE_Y - hh;
+        this.vy *= -0.4; this.vx *= 0.8;
+        if (Math.abs(this.vy) < 1) this.vy = 0;
+      }
+    }
+  }
+  draw() {
+    const img = images[this.denom.value];
+    const imgReady = img && img.complete && img.naturalWidth > 0;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    if (this.isCoin) {
+      ctx.rotate(this.rotation);
+      ctx.beginPath(); ctx.arc(3, 3, this.radius, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+      if (imgReady) {
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.clip();
+        ctx.drawImage(img, -this.radius, -this.radius, this.radius*2, this.radius*2);
+      } else {
+        const grad = ctx.createRadialGradient(-this.radius/3, -this.radius/3, 2, 0, 0, this.radius);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.3, this.color);
+        grad.addColorStop(1, '#000');
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${this.radius*0.55}px Arial`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+        ctx.fillText(this.denom.name, 0, 0);
+        ctx.shadowBlur = 0;
+      }
+    } else {
+      const hw = this.width/2, hh = this.height/2;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(-hw+3, -hh+3, this.width, this.height);
+      if (imgReady) {
+        ctx.drawImage(img, -hw, -hh, this.width, this.height);
+      } else {
+        const grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
+        grad.addColorStop(0, this.color);
+        grad.addColorStop(1, '#000');
+        ctx.fillStyle = grad;
+        ctx.fillRect(-hw, -hh, this.width, this.height);
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+        ctx.strokeRect(-hw, -hh, this.width, this.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+        ctx.fillText(this.denom.name, 0, 0);
+        ctx.shadowBlur = 0;
+      }
+    }
+    ctx.restore();
+  }
+}
+
+function checkCollisions() {
+  for (let i = 0; i < state.coins.length; i++) {
+    for (let j = i+1; j < state.coins.length; j++) {
+      const a = state.coins[i], b = state.coins[j];
+      if (a.merging || b.merging) continue;
+      if (a.isCoin && b.isCoin) {
+        const dx = b.x-a.x, dy = b.y-a.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < a.radius+b.radius) {
+          if (a.tier === b.tier && a.tier < DENOMS.length-1) { mergeItems(a,b); return; }
+          const overlap = (a.radius+b.radius-dist)/2;
+          const nx = dx/dist, ny = dy/dist;
+          a.x -= nx*overlap; a.y -= ny*overlap;
+          b.x += nx*overlap; b.y += ny*overlap;
+          const dvx = a.vx-b.vx, dvy = a.vy-b.vy;
+          const dot = dvx*nx+dvy*ny;
+          a.vx -= dot*nx*0.5; a.vy -= dot*ny*0.5;
+          b.vx += dot*nx*0.5; b.vy += dot*ny*0.5;
+        }
+      } else if (!a.isCoin && !b.isCoin) {
+        const ab = {x:a.x-a.width/2,y:a.y-a.height/2,w:a.width,h:a.height};
+        const bb = {x:b.x-b.width/2,y:b.y-b.height/2,w:b.width,h:b.height};
+        if (ab.x<bb.x+bb.w && ab.x+ab.w>bb.x && ab.y<bb.y+bb.h && ab.y+ab.h>bb.y) {
+          if (a.tier === b.tier && a.tier < DENOMS.length-1) { mergeItems(a,b); return; }
+          const ox = Math.min(ab.x+ab.w-bb.x, bb.x+bb.w-ab.x);
+          const oy = Math.min(ab.y+ab.h-bb.y, bb.y+bb.h-ab.y);
+          if (ox < oy) {
+            const s = a.x<b.x?-1:1;
+            a.x += s*ox/2; b.x -= s*ox/2;
+            a.vx *= -0.5; b.vx *= -0.5;
+          } else {
+            const s = a.y<b.y?-1:1;
+            a.y += s*oy/2; b.y -= s*oy/2;
+            a.vy *= -0.5; b.vy *= -0.5;
+          }
+        }
+      } else {
+        const circle = a.isCoin ? a : b;
+        const rect = a.isCoin ? b : a;
+        const rb = {x:rect.x-rect.width/2,y:rect.y-rect.height/2,w:rect.width,h:rect.height};
+        const cx = Math.max(rb.x, Math.min(circle.x, rb.x+rb.w));
+        const cy = Math.max(rb.y, Math.min(circle.y, rb.y+rb.h));
+        const dx = circle.x-cx, dy = circle.y-cy;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < circle.radius && dist > 0) {
+          const nx = dx/dist, ny = dy/dist;
+          const overlap = circle.radius - dist;
+          circle.x += nx*overlap; circle.y += ny*overlap;
+          circle.vx += nx*0.5; circle.vy += ny*0.5;
+        }
+      }
+    }
+  }
+}
+
+function mergeItems(a, b) {
+  const newTier = a.tier + 1;
+  const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+  let finalTier = newTier;
+  if (state.doubleLevel > 0 && Math.random() < state.doubleLevel*0.05 && newTier < DENOMS.length-1) {
+    finalTier = newTier + 1;
+    toast('✨ ДВОЙНОЕ СЛИЯНИЕ!');
+  }
+  a.merging = true; b.merging = true;
+  for (let i = 0; i < 20; i++) {
+    state.particles.push({
+      x:mx,y:my,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,life:30,color:'#ffd700'
+    });
+  }
+  setTimeout(() => {
+    state.coins = state.coins.filter(c => c !== a && c !== b);
+    const newItem = new GameItem(mx, my, finalTier);
+    newItem.vy = -3;
+    state.coins.push(newItem);
+    state.totalMerges++;
+    addXP(10);
+    updateQuest('merge3', 1);
+    updateQuest('merge5', 1);
+    updateQuest('bill1', finalTier === DENOMS.length-1 ? 1 : 0);
+    updateBPQuest('bp_merge3', 1);
+    updateBPQuest('bp_merge5', 1);
+    updateBPQuest('bp_merge10', 1);
+    updateBPQuest('bp_merge20', 1);
+    updateBPQuest('bp_merge50', 1);
+    if (finalTier >= 3) updateBPQuest('bp_coin10', 1);
+    if (finalTier >= 4) updateBPQuest('bp_coin50', 1);
+    if (finalTier >= 5) updateBPQuest('bp_coin100', 1);
+    if (finalTier >= 7) updateBPQuest('bp_coin500', 1);
+    if (finalTier >= 8) updateBPQuest('bp_coin1000', 1);
+    if (finalTier > state.maxCoinTier) {
+      state.maxCoinTier = finalTier;
+      document.getElementById('maxCoin').textContent = DENOMS[finalTier].name;
+    }
+    if (finalTier === DENOMS.length - 1) showBillCelebration();
+  }, 100);
+}
+
+function showBillCelebration() {
+  state.showBillAnimation = true;
+  const overlay = document.getElementById('billOverlay');
+  const billImg = document.getElementById('billImage');
+  overlay.classList.add('show');
+  billImg.classList.remove('fly');
+  for (let i = 0; i < 30; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random()*100+'%';
+    c.style.top = '-10px';
+    c.style.background = ['#ffd700','#ff6b6b','#00ff88','#00a8ff','#ff00ff'][Math.floor(Math.random()*5)];
+    c.style.animationDelay = Math.random()*0.5+'s';
+    overlay.appendChild(c);
+  }
+  setTimeout(() => billImg.classList.add('fly'), 2500);
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    billImg.classList.remove('fly');
+    overlay.querySelectorAll('.confetti').forEach(c => c.remove());
+    const reward = Math.floor(5000 * state.prestigeMult);
+    state.wallet += reward;
+    state.bills++;
+    document.getElementById('wallet').textContent = state.wallet;
+    document.getElementById('bills').textContent = state.bills;
+    toast(`💰 Купюра 5000₽! +${reward}₽`);
+    state.showBillAnimation = false;
+  }, 3700);
+}
+
+function addXP(amount) {
+  state.xp += Math.floor(amount * state.prestigeMult);
+  const needed = getXpNeeded();
+  if (state.xp >= needed) {
+    state.xp -= needed;
+    state.level++;
+    toast(`⭐ Уровень ${state.level}!`);
+    state.energy = Math.min(state.maxEnergy, state.energy + 20);
+    updateQuestsByLevel();
+  }
+  updateUI();
+}
+function getXpNeeded() { return 100 * Math.pow(1.5, state.level - 1); }
+
+function updateQuestsByLevel() {
+  if (state.level >= 5 && !state.quests.find(q => q.id === 'drops50')) {
+    state.quests.push({ id: 'drops50', name: 'Сделай 50 бросков', target: 50, progress: state.totalDrops, reward: 100, done: false });
+  }
+  if (state.level >= 10 && !state.quests.find(q => q.id === 'merge20')) {
+    state.quests.push({ id: 'merge20', name: 'Собери 20 слияний', target: 20, progress: state.totalMerges, reward: 200, done: false });
+  }
+  if (state.level >= 15 && !state.quests.find(q => q.id === 'bill3')) {
+    state.quests.push({ id: 'bill3', name: 'Получи 3 купюры 5000₽', target: 3, progress: state.bills, reward: 500, done: false });
+  }
+  renderQuests();
+}
+
+function dropCoin() {
+  if (state.showBillAnimation) return;
+  const cost = getDropCost();
+  if (state.energy < cost && state.boosters.infinite <= 0) {
+    toast('⚠️ Не хватает энергии!');
+    return;
+  }
+  if (state.boosters.infinite <= 0) state.energy -= cost;
+  state.totalDrops++;
+  addXP(1);
+  updateQuest('drops5', 1);
+  updateQuest('drops50', 1);
+  updateBPQuest('bp_drops10', 1);
+  updateBPQuest('bp_drops25', 1);
+  updateBPQuest('bp_drops50', 1);
+  updateBPQuest('bp_drops100', 1);
+  updateBPQuest('bp_drops200', 1);
+  updateBPQuest('bp_energy50', 1);
+  updateBPQuest('bp_energy100', 1);
+  updateBPQuest('bp_energy200', 1);
+  updateBPQuest('bp_energy500', 1);
+  let tier = 0;
+  if (state.critLevel > 0 && Math.random() < state.critLevel*0.02) {
+    tier = 1;
+    toast('🎲 КРИТИЧЕСКИЙ БРОСОК!');
+  }
+  const item = new GameItem(state.dropX, 30, tier);
+  state.coins.push(item);
+  updateUI();
+}
+
+function getDropCost() {
+  const base = Math.max(1, 5 - Math.floor((state.clickLevel-1)/2));
+  return Math.max(1, Math.floor(base / state.prestigeMult));
+}
+
+function upgradeClick() {
+  const price = getClickPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.clickLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('🖱️ Клик улучшен!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getClickPrice() { return Math.floor(50 * Math.pow(1.3, state.clickLevel-1)); }
+
+function upgradeAuto() {
+  const price = getAutoPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.autoLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('🤖 Автокликер улучшен!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getAutoPrice() { return Math.floor(200 * Math.pow(1.5, state.autoLevel)); }
+
+function upgradeMaxEnergy() {
+  const price = getMaxEngPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.maxEnergyLevel++;
+    state.maxEnergy = 100 + (state.maxEnergyLevel-1)*50;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('🔋 Макс. энергия увеличена!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getMaxEngPrice() { return Math.floor(100 * Math.pow(1.4, state.maxEnergyLevel-1)); }
+
+function upgradeRegen() {
+  const price = getRegenPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.regenLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('⚡ Регенерация улучшена!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getRegenPrice() { return Math.floor(150 * Math.pow(1.5, state.regenLevel-1)); }
+function getRegenInterval() { return Math.max(5, 30 - (state.regenLevel-1)*3); }
+
+function upgradeCrit() {
+  const price = getCritPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.critLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('🎲 Шанс крита увеличен!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getCritPrice() { return Math.floor(300 * Math.pow(1.6, state.critLevel)); }
+
+function upgradeMagnet() {
+  const price = getMagnetPrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.magnetLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('🧲 Магнит улучшен!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getMagnetPrice() { return Math.floor(500 * Math.pow(1.7, state.magnetLevel)); }
+
+function upgradeDouble() {
+  const price = getDoublePrice();
+  if (state.wallet >= price) {
+    state.wallet -= price;
+    state.doubleLevel++;
+    updateBPQuest('bp_upgrade', 1);
+    updateBPQuest('bp_money100', price);
+    updateBPQuest('bp_money500', price);
+    updateBPQuest('bp_money1000', price);
+    updateBPQuest('bp_money2000', price);
+    toast('✨ Шанс двойного слияния увеличен!');
+    updateUI();
+  } else toast('Нужно ' + price + '₽');
+}
+function getDoublePrice() { return Math.floor(1000 * Math.pow(2, state.doubleLevel)); }
+
+function activateBooster(type) {
+  const prices = { x2energy: 50, infinite: 100, rain: 200 };
+  const durations = { x2energy: 60, infinite: 30, rain: 20 };
+  if (state.wallet < prices[type]) { toast('Нужно ' + prices[type] + '₽'); return; }
+  state.wallet -= prices[type];
+  state.boosters[type] = durations[type];
+  updateBPQuest('bp_booster', 1);
+  updateBPQuest('bp_money100', prices[type]);
+  updateBPQuest('bp_money500', prices[type]);
+  updateBPQuest('bp_money1000', prices[type]);
+  updateBPQuest('bp_money2000', prices[type]);
+  toast('🚀 Бустер активирован!');
+  if (type === 'rain') {
+    for (let i = 0; i < 10; i++) {
+      setTimeout(() => {
+        const x = Math.random()*(W-60)+30;
+        state.coins.push(new GameItem(x, 30, 0));
+      }, i*200);
+    }
+  }
+  updateUI();
+}
+
+function doPrestige() {
+  if (state.bills < 10) { toast('Нужно 10 купюр 5000₽!'); return; }
+  if (!confirm('Престиж сбросит прогресс, но даст +0.5x ко всему. Продолжить?')) return;
+  state.prestige++;
+  state.prestigeMult += 0.5;
+  state.bills = 0; state.wallet = 0; state.coins = [];
+  state.clickLevel = 1; state.autoLevel = 0;
+  state.maxEnergyLevel = 1; state.regenLevel = 1;
+  state.critLevel = 0; state.magnetLevel = 0; state.doubleLevel = 0;
+  state.maxEnergy = 100; state.energy = 100;
+  state.level = 1; state.xp = 0;
+  toast(`👑 Престиж ${state.prestige}! Множитель: x${state.prestigeMult}`);
+  updateUI();
+}
+
+function updateQuest(id, amount) {
+  const quest = state.quests.find(q => q.id === id);
+  if (quest && !quest.done) {
+    quest.progress += amount;
+    if (quest.progress >= quest.target) {
+      quest.done = true;
+      state.energy = Math.min(state.maxEnergy, state.energy + quest.reward);
+      toast(`✅ Задание выполнено! +${quest.reward}⚡`);
+    }
+    renderQuests();
+  }
+}
+
+function renderQuests() {
+  document.getElementById('quests').innerHTML = state.quests.map(q =>
+    `<div class="quest ${q.done ? 'done' : ''}">${q.name} (${Math.min(q.progress,q.target)}/${q.target}) ${q.done ? '✅' : ''}</div>`
+  ).join('');
+}
+
+const ACHIEVEMENTS = [
+  { id: 'first_drop', name: '🎯 Первый бросок', check: () => state.totalDrops >= 1, reward: 10 },
+  { id: 'drops_10', name: '💦 10 бросков', check: () => state.totalDrops >= 10, reward: 20 },
+  { id: 'drops_50', name: '🌊 50 бросков', check: () => state.totalDrops >= 50, reward: 30 },
+  { id: 'drops_100', name: ' 100 бросков', check: () => state.totalDrops >= 100, reward: 50 },
+  { id: 'drops_500', name: '🌊 500 бросков', check: () => state.totalDrops >= 500, reward: 100 },
+  { id: 'drops_1000', name: '🌊 1000 бросков', check: () => state.totalDrops >= 1000, reward: 200 },
+  { id: 'coin_2', name: '🟠 Монета 2₽', check: () => state.maxCoinTier >= 1, reward: 10 },
+  { id: 'coin_5', name: ' Монета 5₽', check: () => state.maxCoinTier >= 2, reward: 15 },
+  { id: 'coin_10', name: '🟡 Монета 10₽', check: () => state.maxCoinTier >= 3, reward: 20 },
+  { id: 'coin_50', name: ' Купюра 50₽', check: () => state.maxCoinTier >= 4, reward: 30 },
+  { id: 'coin_100', name: '💜 Монета 100₽', check: () => state.maxCoinTier >= 5, reward: 50 },
+  { id: 'coin_500', name: '🟣 Монета 500₽', check: () => state.maxCoinTier >= 7, reward: 100 },
+  { id: 'coin_1000', name: ' Монета 1000₽', check: () => state.maxCoinTier >= 8, reward: 150 },
+  { id: 'coin_2000', name: '💚 Монета 2000₽', check: () => state.maxCoinTier >= 9, reward: 200 },
+  { id: 'first_bill', name: '💰 Первая 5000₽', check: () => state.bills >= 1, reward: 200 },
+  { id: 'bills_5', name: '💎 5 купюр', check: () => state.bills >= 5, reward: 500 },
+  { id: 'bills_10', name: '💎 10 купюр', check: () => state.bills >= 10, reward: 1000 },
+  { id: 'bills_50', name: '💎 50 купюр', check: () => state.bills >= 50, reward: 5000 },
+  { id: 'level_5', name: '⭐ Уровень 5', check: () => state.level >= 5, reward: 50 },
+  { id: 'level_10', name: '🌟 Уровень 10', check: () => state.level >= 10, reward: 100 },
+  { id: 'level_20', name: '🌟 Уровень 20', check: () => state.level >= 20, reward: 300 },
+  { id: 'merge_10', name: '🔗 10 слияний', check: () => state.totalMerges >= 10, reward: 30 },
+  { id: 'merge_50', name: '🔗 50 слияний', check: () => state.totalMerges >= 50, reward: 100 },
+  { id: 'merge_200', name: '🔗 200 слияний', check: () => state.totalMerges >= 200, reward: 500 },
+  { id: 'bp_level_5', name: '🏆 БП уровень 5', check: () => bpData.level >= 5, reward: 100 },
+  { id: 'bp_level_15', name: '🏆 БП уровень 15', check: () => bpData.level >= 15, reward: 300 },
+  { id: 'bp_level_30', name: '🏆 БП уровень 30', check: () => bpData.level >= 30, reward: 1000 },
+  { id: 'calendar_7', name: ' 7 дней подряд', check: () => calendarData.claimedDays.length >= 7, reward: 200 },
+  { id: 'calendar_30', name: '📅 30 дней подряд', check: () => calendarData.claimedDays.length >= 30, reward: 1000 },
+];
+
+function checkAchievements() {
+  for (const a of ACHIEVEMENTS) {
+    if (!state.achievements[a.id] && a.check()) {
+      state.achievements[a.id] = true;
+      state.energy = Math.min(state.maxEnergy, state.energy + a.reward);
+      toast(`🏆 ${a.name}! +${a.reward}⚡`);
+      renderAchievements();
+    }
+  }
+}
+
+function renderAchievements() {
+  document.getElementById('achievements').innerHTML = ACHIEVEMENTS.map(a =>
+    `<div class="ach ${state.achievements[a.id] ? 'done' : ''}">${a.name} (+${a.reward}⚡)</div>`
+  ).join('');
+}
+
+function buyEnergy(amount, cost) {
+  if (state.wallet >= cost) {
+    state.wallet -= cost;
+    state.energy = Math.min(state.maxEnergy, state.energy + amount);
+    updateBPQuest('bp_money100', cost);
+    updateBPQuest('bp_money500', cost);
+    updateBPQuest('bp_money1000', cost);
+    updateBPQuest('bp_money2000', cost);
+    toast(`+${amount}⚡ энергии!`);
+    updateUI();
+  } else toast('Нужно ' + cost + '₽');
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+  if (id === 'calendarModal') renderCalendar();
+  if (id === 'bpModal') { generateDailyQuests(); renderBP(); }
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function claimWelcome() {
+  state.welcomeClaimed = true;
+  state.energy = 200;
+  state.maxEnergy = 200;
+  state.clickLevel = 2;
+  state.autoLevel = 1;
+  state.wallet = 500;
+  closeModal('welcomeModal');
+  toast('🎉 Приветственный пакет получен!');
+  updateUI();
+  saveState();
+}
+
+document.getElementById('dropBtn').addEventListener('click', dropCoin);
+canvas.addEventListener('click', dropCoin);
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); dropCoin(); }});
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  state.dropX = Math.max(30, Math.min(W-30, e.clientX-rect.left));
+});
+
+function updateUI() {
+  document.getElementById('energy').textContent = Math.floor(state.energy);
+  document.getElementById('maxEnergy').textContent = state.maxEnergy;
+  document.getElementById('energyBar').style.width = (state.energy/state.maxEnergy*100)+'%';
+  document.getElementById('wallet').textContent = state.wallet;
+  document.getElementById('bills').textContent = state.bills;
+  document.getElementById('prestigeMult').textContent = state.prestigeMult.toFixed(1);
+  document.getElementById('playerLevel').textContent = state.level;
+  document.getElementById('xp').textContent = state.xp;
+  document.getElementById('xpNeeded').textContent = getXpNeeded();
+  document.getElementById('xpBar').style.width = (state.xp/getXpNeeded()*100)+'%';
+  document.getElementById('clickLvl').textContent = state.clickLevel;
+  document.getElementById('clickCost').textContent = getDropCost();
+  document.getElementById('clickPrice').textContent = getClickPrice();
+  document.getElementById('autoLvl').textContent = state.autoLevel;
+  document.getElementById('autoRate').textContent = (state.autoLevel*0.5).toFixed(1);
+  document.getElementById('autoPrice').textContent = getAutoPrice();
+  document.getElementById('maxEngLvl').textContent = state.maxEnergyLevel;
+  document.getElementById('maxEngVal').textContent = state.maxEnergy;
+  document.getElementById('maxEngPrice').textContent = getMaxEngPrice();
+  document.getElementById('regenLvl').textContent = state.regenLevel;
+  document.getElementById('regenVal').textContent = getRegenInterval();
+  document.getElementById('regenPrice').textContent = getRegenPrice();
+  document.getElementById('regenRate').textContent = getRegenInterval();
+  document.getElementById('critLvl').textContent = state.critLevel;
+  document.getElementById('critChance').textContent = (state.critLevel*2);
+  document.getElementById('critPrice').textContent = getCritPrice();
+  document.getElementById('magnetLvl').textContent = state.magnetLevel;
+  document.getElementById('magnetRange').textContent = state.magnetLevel*50;
+  document.getElementById('magnetPrice').textContent = getMagnetPrice();
+  document.getElementById('doubleLvl').textContent = state.doubleLevel;
+  document.getElementById('doubleChance').textContent = (state.doubleLevel*5);
+  document.getElementById('doublePrice').textContent = getDoublePrice();
+  document.getElementById('totalDrops').textContent = state.totalDrops;
+  document.getElementById('totalMerges').textContent = state.totalMerges;
+  document.getElementById('maxCoin').textContent = DENOMS[state.maxCoinTier].name;
+  document.getElementById('btnPrestige').textContent = `Престиж (${state.bills}/10)`;
+  checkAchievements();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+let lastTime = Date.now();
+let autoDropTimer = 0;
+
+function gameLoop() {
+  const now = Date.now();
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+
+  if (state.boosters.infinite <= 0) {
+    const regenInterval = getRegenInterval();
+    const regenMult = state.boosters.x2energy > 0 ? 2 : 1;
+    if (now - state.lastRegen > regenInterval * 1000 / regenMult) {
+      state.energy = Math.min(state.maxEnergy, state.energy + 1);
+      state.lastRegen = now;
+    }
+  }
+
+  for (const key in state.boosters) {
+    if (state.boosters[key] > 0) {
+      state.boosters[key] -= dt;
+      if (state.boosters[key] <= 0) {
+        state.boosters[key] = 0;
+        toast(`Бустер ${key} закончился`);
+      }
+    }
+  }
+
+  if (state.autoLevel > 0) {
+    autoDropTimer += dt;
+    const interval = 1 / (state.autoLevel * 0.5);
+    if (autoDropTimer >= interval) {
+      autoDropTimer = 0;
+      state.dropX = Math.random() * (W-60) + 30;
+      dropCoin();
+    }
+  }
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#1a3a5a';
+  ctx.fillRect(0, 0, W, H);
+  const tableGrad = ctx.createLinearGradient(0, TABLE_Y, 0, H);
+  tableGrad.addColorStop(0, '#8b4513');
+  tableGrad.addColorStop(1, '#654321');
+  ctx.fillStyle = tableGrad;
+  ctx.fillRect(0, TABLE_Y, W, H-TABLE_Y);
+  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(0, TABLE_Y); ctx.lineTo(W, TABLE_Y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,0,0,0.3)'; ctx.lineWidth = 2;
+  ctx.setLineDash([10,10]);
+  ctx.beginPath(); ctx.moveTo(0, 50); ctx.lineTo(W, 50); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(state.dropX, 0); ctx.lineTo(state.dropX, 30); ctx.stroke();
+  const previewImg = images[1];
+  if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
+    ctx.drawImage(previewImg, state.dropX-22, 8, 44, 44);
+  } else {
+    ctx.beginPath(); ctx.arc(state.dropX, 30, 22, 0, Math.PI*2);
+    ctx.fillStyle = '#b87333'; ctx.fill();
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  state.coins.forEach(item => { item.update(); item.draw(); });
+  checkCollisions();
+  for (let i = state.particles.length-1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.life--;
+    ctx.globalAlpha = p.life/30;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 5, 5);
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  let boosterY = 70;
+  for (const key in state.boosters) {
+    if (state.boosters[key] > 0) {
+      ctx.fillStyle = 'rgba(255,107,157,0.9)';
+      ctx.fillRect(10, boosterY, 150, 25);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
+      ctx.fillText(`${key}: ${Math.ceil(state.boosters[key])}с`, 15, boosterY+17);
+      boosterY += 30;
+    }
+  }
+
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+
+checkDailyLogin();
+renderQuests();
+renderAchievements();
+updateUI();
+
+if (!state.welcomeClaimed) {
+  setTimeout(() => openModal('welcomeModal'), 500);
+}
+
+console.log('=== GAME STARTED ===');
+gameLoop();
+toast('🎮 Нажми кнопку или пробел!');
+</script>
+</body>
+</html>
