@@ -2,16 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Money Drops</title>
-
-<!-- 🖼️ ИКОНКА ВКЛАДКИ (встроена как SVG — не нужен файл!) -->
+<title>Монетки до 5000₽ — Играй бесплатно!</title>
 <link rel="icon" type="image/png" href="5000.png">
 <link rel="apple-touch-icon" href="5000.png">
-
-<!-- 📱 ПРЕВЬЮ ПРИ ШАРИНГЕ (замени username на свой GitHub логин) -->
-<meta property="og:title" content="Монетки до 5000₽ — Играй бесплатно!">
-<meta property="og:description" content="Бросай монетки, собирай купюры, прокачивай клики! Календарь наград и батл-пасс!">
-<meta property="og:image" content="https://username.github.io/coin-game/preview.png">
+<meta property="og:title" content="MoneyDrops">
+<meta property="og:description" content="Бросай монетки, собирай купюры, прокачивай клики!">
+<meta property="og:image" content="https://SpLorT1337.github.io/coin-game/5000.png">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#ffd700">
 
@@ -71,6 +67,7 @@
   button.booster { background: linear-gradient(135deg, #ff6b9d, #c44569); border-color: #ff8fab; }
   button.prestige { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; font-weight: bold; }
   button.tab-btn { background: linear-gradient(135deg, #6c5ce7, #a29bfe); font-weight: bold; }
+  button.save-btn { background: linear-gradient(135deg, #00ff88, #00a866); color: #000; font-weight: bold; }
   .drop-btn {
     width: 100%; padding: 15px; margin-top: 10px;
     background: linear-gradient(135deg, #ff6b6b, #ff8c00);
@@ -78,6 +75,14 @@
     cursor: pointer; font-size: 16px; font-weight: bold;
   }
   .drop-btn:hover { transform: scale(1.05); }
+  .auto-toggle {
+    width: 100%; padding: 10px; margin-top: 5px;
+    background: linear-gradient(135deg, #4a7c9a, #2a5c7a);
+    color: white; border: 2px solid #8ecae6; border-radius: 8px;
+    cursor: pointer; font-size: 13px; font-weight: bold;
+  }
+  .auto-toggle.on { background: linear-gradient(135deg, #00ff88, #00a866); color: #000; border-color: #00ff88; }
+  .auto-toggle.off { background: linear-gradient(135deg, #ff4444, #cc0000); border-color: #ff6666; }
   .ach { font-size: 11px; padding: 4px; margin: 2px 0; background: rgba(0,0,0,0.3); border-radius: 4px; }
   .ach.done { background: rgba(255,215,0,0.2); color: #ffd700; }
   .quest { font-size: 11px; padding: 6px; margin: 3px 0; background: rgba(0,100,200,0.2); border-radius: 4px; border-left: 3px solid #00a8ff; }
@@ -240,9 +245,37 @@
     font-size: 14px; line-height: 1.8;
   }
   .welcome-gift .gift-list span { color: #ffd700; font-weight: bold; }
+  .save-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: rgba(0,255,136,0.9);
+    color: #000;
+    border-radius: 20px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 50;
+  }
+  .save-indicator.show { opacity: 1; }
+  .save-status {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 8px 15px;
+    background: rgba(0,0,0,0.8);
+    color: #00ff88;
+    border-radius: 8px;
+    font-size: 12px;
+    z-index: 50;
+    border: 1px solid #00ff88;
+  }
 </style>
 </head>
 <body>
+
+<div class="save-status" id="saveStatus">💾 Проверка сохранения...</div>
 
 <div id="billOverlay">
   <img id="billImage" src="5000.png" alt="5000₽">
@@ -286,7 +319,7 @@
       <div class="gift-box">🎁</div>
       <div class="modal-title">Добро пожаловать!</div>
       <div class="gift-list">
-        <div> <span>+200 энергии</span> на старт</div>
+        <div>⚡ <span>+200 энергии</span> на старт</div>
         <div>🔋 <span>Макс. энергия 200</span></div>
         <div>🖱️ <span>Клик улучшен</span> до 2 ур.</div>
         <div>🤖 <span>Автокликер 1 ур.</span> в подарок</div>
@@ -309,24 +342,25 @@
     <div class="stat" style="font-size:11px">Опыт: <span id="xp">0</span> / <span id="xpNeeded">100</span></div>
     <div class="xp-bar"><div class="xp-fill" id="xpBar" style="width:0%"></div></div>
 
-    <h2 style="margin-top:15px"> Кошелёк</h2>
+    <h2 style="margin-top:15px">💰 Кошелёк</h2>
     <div class="stat" style="font-size:20px;color:#ffd700"><span id="wallet">0</span> ₽</div>
     <div class="stat" style="font-size:11px;color:#aaa">Купюр 5000₽: <span id="bills">0</span></div>
     <div class="stat" style="font-size:11px;color:#aaa">Престиж: x<span id="prestigeMult">1.0</span></div>
 
-    <h2 style="margin-top:15px"> Следующая</h2>
+    <h2 style="margin-top:15px">🎯 Следующая</h2>
     <div class="next-coin-preview">
       <img id="nextCoinImg" src="1.png" style="max-width:60px;max-height:60px;">
       <div style="font-size:11px;color:#aaa">Стоимость: <span id="dropCost">5</span>⚡</div>
     </div>
 
     <button class="tab-btn" onclick="openModal('calendarModal')">📅 Календарь наград</button>
-    <button class="tab-btn" onclick="openModal('bpModal')">🏆 Батл-пасс</button>
+    <button class="tab-btn" onclick="openModal('bpModal')"> Батл-пасс</button>
+    <button class="save-btn" onclick="manualSave()">💾 Сохранить игру</button>
 
     <h2 style="margin-top:15px">📋 Задания</h2>
     <div id="quests"></div>
 
-    <h2 style="margin-top:15px">🏆 Достижения</h2>
+    <h2 style="margin-top:15px"> Достижения</h2>
     <div id="achievements"></div>
   </div>
 
@@ -335,6 +369,7 @@
       <canvas id="gameCanvas" width="420" height="600"></canvas>
     </div>
     <button class="drop-btn" id="dropBtn">🎯 БРОСИТЬ МОНЕТКУ</button>
+    <button class="auto-toggle off" id="autoToggle" onclick="toggleAuto()">🤖 Автокликер: ВЫКЛ</button>
     <div style="text-align:center;margin-top:8px;font-size:12px;color:#aaa">Нажимай кнопку или пробел</div>
   </div>
 
@@ -354,7 +389,7 @@
     <div class="stat" style="font-size:11px">Бросков/сек: <span id="autoRate">0</span></div>
     <button onclick="upgradeAuto()">Купить (<span id="autoPrice">200</span>₽)</button>
 
-    <h3> Макс. энергия</h3>
+    <h3>🔋 Макс. энергия</h3>
     <div class="stat" style="font-size:11px">Уровень: <span id="maxEngLvl">1</span></div>
     <div class="stat" style="font-size:11px">Макс: <span id="maxEngVal">100</span>⚡</div>
     <button onclick="upgradeMaxEnergy()">Улучшить (<span id="maxEngPrice">100</span>₽)</button>
@@ -388,7 +423,7 @@
     <div class="stat" style="font-size:11px">Нужно купюр: 10</div>
     <button class="prestige" onclick="doPrestige()" id="btnPrestige">Престиж (0/10)</button>
 
-    <h3> Статистика</h3>
+    <h3>📊 Статистика</h3>
     <div class="stat" style="font-size:11px">Бросков: <span id="totalDrops">0</span></div>
     <div class="stat" style="font-size:11px">Слияний: <span id="totalMerges">0</span></div>
     <div class="stat" style="font-size:11px">Макс. номинал: <span id="maxCoin">1₽</span></div>
@@ -396,8 +431,30 @@
 </div>
 
 <div id="toast"></div>
+<div class="save-indicator" id="saveIndicator">💾 Сохранено!</div>
 
 <script>
+// ============ ПРОВЕРКА LOCALSTORAGE ============
+let localStorageAvailable = false;
+try {
+  localStorage.setItem('test', 'test');
+  localStorage.removeItem('test');
+  localStorageAvailable = true;
+  console.log('✅ localStorage доступен');
+} catch(e) {
+  console.error('❌ localStorage НЕ доступен:', e);
+}
+
+const saveStatusEl = document.getElementById('saveStatus');
+if (localStorageAvailable) {
+  saveStatusEl.textContent = '💾 localStorage работает';
+  saveStatusEl.style.color = '#00ff88';
+} else {
+  saveStatusEl.textContent = '️ localStorage НЕ работает!';
+  saveStatusEl.style.color = '#ff6b6b';
+  saveStatusEl.style.borderColor = '#ff6b6b';
+}
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const W = 420, H = 600;
@@ -421,7 +478,6 @@ const images = {};
 DENOMS.forEach(d => {
   const img = new Image();
   img.src = d.img;
-  img.onerror = () => { console.log('⚠️ Не найдено: ' + d.img + ' — будет нарисовано'); };
   images[d.value] = img;
 });
 
@@ -431,7 +487,8 @@ const defaultState = {
   totalDrops: 0, totalMerges: 0, maxCoinTier: 0,
   xp: 0, level: 1,
   prestige: 0, prestigeMult: 1.0,
-  clickLevel: 1, autoLevel: 0, maxEnergyLevel: 1, regenLevel: 1,
+  clickLevel: 1, autoLevel: 0, autoEnabled: false,
+  maxEnergyLevel: 1, regenLevel: 1,
   critLevel: 0, magnetLevel: 0, doubleLevel: 0,
   boosters: { x2energy: 0, infinite: 0, rain: 0 },
   quests: [
@@ -440,32 +497,220 @@ const defaultState = {
     { id: 'bill1', name: 'Получи 1 купюру 5000₽', target: 1, progress: 0, reward: 150, done: false }
   ],
   achievements: {},
-  coins: [], particles: [],
+  coins: [],
   dropX: W / 2, showBillAnimation: false, lastRegen: Date.now(),
   welcomeClaimed: false
 };
 
-let state = loadState();
-
-function loadState() {
-  try {
-    const saved = localStorage.getItem('coinGame');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...defaultState, ...parsed, boosters: { ...defaultState.boosters, ...(parsed.boosters || {}) } };
+// ============ КЛАСС МОНЕТКИ (должен быть ДО loadState) ============
+class GameItem {
+  constructor(x, y, tier) {
+    this.x = x; this.y = y;
+    this.vx = (Math.random() - 0.5) * 2;
+    this.vy = 0;
+    this.tier = tier;
+    this.denom = DENOMS[tier];
+    this.isCoin = this.denom.isCoin;
+    this.radius = this.denom.radius || 0;
+    this.width = this.denom.width || 0;
+    this.height = this.denom.height || 0;
+    this.color = this.denom.color;
+    this.merging = false;
+    this.settled = false;
+    this.rotation = 0;
+    this.rotSpeed = this.isCoin ? (Math.random() - 0.5) * 0.15 : 0;
+  }
+  update() {
+    if (this.merging) return;
+    this.vy += 0.3;
+    this.x += this.vx; this.y += this.vy;
+    this.rotation += this.rotSpeed;
+    if (state.magnetLevel > 0) {
+      const range = state.magnetLevel * 50;
+      for (const other of state.coins) {
+        if (other === this || other.merging) continue;
+        const dx = other.x - this.x, dy = other.y - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < range && dist > 0) {
+          const force = (range - dist) / range * 0.1;
+          this.vx += (dx/dist) * force;
+          this.vy += (dy/dist) * force;
+        }
+      }
     }
-  } catch(e) {}
+    if (this.isCoin) {
+      if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.5; }
+      if (this.x + this.radius > W) { this.x = W - this.radius; this.vx *= -0.5; }
+      if (this.y + this.radius > TABLE_Y) {
+        this.y = TABLE_Y - this.radius;
+        this.vy *= -0.4; this.vx *= 0.8; this.rotSpeed *= 0.9;
+        if (Math.abs(this.vy) < 1) { this.vy = 0; this.settled = true; }
+      }
+    } else {
+      const hw = this.width/2, hh = this.height/2;
+      if (this.x - hw < 0) { this.x = hw; this.vx *= -0.5; }
+      if (this.x + hw > W) { this.x = W - hw; this.vx *= -0.5; }
+      if (this.y + hh > TABLE_Y) {
+        this.y = TABLE_Y - hh;
+        this.vy *= -0.4; this.vx *= 0.8;
+        if (Math.abs(this.vy) < 1) { this.vy = 0; this.settled = true; }
+      }
+    }
+  }
+  draw() {
+    const img = images[this.denom.value];
+    const imgReady = img && img.complete && img.naturalWidth > 0;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    if (this.isCoin) {
+      ctx.rotate(this.rotation);
+      ctx.beginPath(); ctx.arc(3, 3, this.radius, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+      if (imgReady) {
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.clip();
+        ctx.drawImage(img, -this.radius, -this.radius, this.radius*2, this.radius*2);
+      } else {
+        const grad = ctx.createRadialGradient(-this.radius/3, -this.radius/3, 2, 0, 0, this.radius);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.3, this.color);
+        grad.addColorStop(1, '#000');
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${this.radius*0.55}px Arial`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+        ctx.fillText(this.denom.name, 0, 0);
+        ctx.shadowBlur = 0;
+      }
+    } else {
+      const hw = this.width/2, hh = this.height/2;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(-hw+3, -hh+3, this.width, this.height);
+      if (imgReady) {
+        ctx.drawImage(img, -hw, -hh, this.width, this.height);
+      } else {
+        const grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
+        grad.addColorStop(0, this.color);
+        grad.addColorStop(1, '#000');
+        ctx.fillStyle = grad;
+        ctx.fillRect(-hw, -hh, this.width, this.height);
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+        ctx.strokeRect(-hw, -hh, this.width, this.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+        ctx.fillText(this.denom.name, 0, 0);
+        ctx.shadowBlur = 0;
+      }
+    }
+    ctx.restore();
+  }
+}
+
+// ============ СОХРАНЕНИЕ ============
+function loadState() {
+  console.log('=== ЗАГРУЗКА СОХРАНЕНИЯ ===');
+  
+  if (!localStorageAvailable) {
+    console.log('❌ localStorage недоступен, создаём новое сохранение');
+    return JSON.parse(JSON.stringify(defaultState));
+  }
+  
+  try {
+    const saved = localStorage.getItem('coinGame_final');
+    console.log('Попытка загрузить coinGame_final...');
+    
+    if (saved) {
+      console.log('✅ Найдено сохранение, размер:', saved.length, 'байт');
+      const parsed = JSON.parse(saved);
+      console.log('Распарсенные данные:', parsed);
+      
+      const merged = { ...defaultState, ...parsed };
+      merged.boosters = { ...defaultState.boosters, ...(parsed.boosters || {}) };
+      
+      if (parsed.coins && Array.isArray(parsed.coins) && parsed.coins.length > 0) {
+        console.log('🎯 Загружаем монеток:', parsed.coins.length);
+        merged.coins = parsed.coins.map(c => {
+          const item = new GameItem(c.x, c.y, c.tier);
+          item.vx = c.vx || 0;
+          item.vy = c.vy || 0;
+          item.settled = true;
+          return item;
+        });
+      } else {
+        console.log('Монеток в сохранении нет');
+        merged.coins = [];
+      }
+      
+      console.log('✅ Сохранение загружено успешно');
+      console.log('Энергия:', merged.energy);
+      console.log('Кошелёк:', merged.wallet);
+      console.log('Уровень:', merged.level);
+      return merged;
+    } else {
+      console.log('⚠️ Сохранение не найдено, создаём новое');
+    }
+  } catch(e) { 
+    console.error('❌ Ошибка загрузки:', e); 
+  }
   return JSON.parse(JSON.stringify(defaultState));
 }
 
-function saveState() {
+function saveState(showIndicator = false) {
+  if (!localStorageAvailable) {
+    console.log('❌ localStorage недоступен, сохранение невозможно');
+    return;
+  }
+  
   try {
-    const toSave = { ...state, coins: [], particles: [] };
-    localStorage.setItem('coinGame', JSON.stringify(toSave));
-  } catch(e) {}
+    const toSave = {
+      ...state,
+      coins: state.coins.map(c => ({
+        x: c.x, 
+        y: c.y,
+        vx: c.vx, 
+        vy: c.vy,
+        tier: c.tier
+      })),
+      particles: []
+    };
+    const json = JSON.stringify(toSave);
+    console.log(' Сохранение: размер', json.length, 'байт, монеток:', toSave.coins.length);
+    localStorage.setItem('coinGame_final', json);
+    
+    if (showIndicator) {
+      const ind = document.getElementById('saveIndicator');
+      ind.classList.add('show');
+      setTimeout(() => ind.classList.remove('show'), 1500);
+    }
+  } catch(e) { 
+    console.error('❌ Ошибка сохранения:', e); 
+  }
 }
-setInterval(saveState, 5000);
 
+function manualSave() {
+  saveState(true);
+  toast('💾 Игра сохранена!');
+}
+
+// Автосохранение каждые 3 секунды
+setInterval(() => {
+  console.log('⏰ Автосохранение...');
+  saveState(false);
+}, 3000);
+
+// Сохранение при закрытии
+window.addEventListener('beforeunload', () => {
+  console.log('🚪 Закрытие вкладки, сохраняем...');
+  saveState(false);
+});
+
+let state = loadState();
+
+// ============ КАЛЕНДАРЬ ============
 function getTodayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -481,9 +726,9 @@ function getDayReward(day) {
     { type: 'money', amount: 50, label: '+50₽' },
     { type: 'energy', amount: 40, label: '+40⚡' },
     { type: 'booster', booster: 'x2energy', label: 'x2 60с' },
-    { type: 'energy', amount: 50, label: '+50⚡' },
+    { type: 'energy', amount: 50, label: '+50' },
     { type: 'money', amount: 100, label: '+100₽' },
-    { type: 'energy', amount: 60, label: '+60⚡' },
+    { type: 'energy', amount: 60, label: '+60' },
     { type: 'booster', booster: 'rain', label: '🌧️ Дождь' },
     { type: 'energy', amount: 80, label: '+80⚡' },
     { type: 'money', amount: 200, label: '+200₽' },
@@ -492,14 +737,14 @@ function getDayReward(day) {
     { type: 'energy', amount: 120, label: '+120' },
     { type: 'money', amount: 300, label: '+300₽' },
     { type: 'energy', amount: 150, label: '+150⚡' },
-    { type: 'booster', booster: 'x2energy', label: 'x2⚡ 60с' },
+    { type: 'booster', booster: 'x2energy', label: 'x2 60с' },
     { type: 'energy', amount: 180, label: '+180' },
     { type: 'money', amount: 500, label: '+500₽' },
     { type: 'energy', amount: 200, label: '+200⚡' },
     { type: 'booster', booster: 'rain', label: '️ Дождь' },
     { type: 'energy', amount: 250, label: '+250⚡' },
     { type: 'money', amount: 700, label: '+700₽' },
-    { type: 'energy', amount: 300, label: '+300⚡' },
+    { type: 'energy', amount: 300, label: '+300' },
     { type: 'booster', booster: 'infinite', label: '∞ 30с' },
     { type: 'energy', amount: 350, label: '+350' },
     { type: 'money', amount: 1000, label: '+1000₽' },
@@ -512,14 +757,16 @@ function getDayReward(day) {
 
 let calendarData = loadCalendar();
 function loadCalendar() {
+  if (!localStorageAvailable) return { claimedDays: [], lastVisit: null };
   try {
-    const saved = localStorage.getItem('calendarData');
+    const saved = localStorage.getItem('calendarData_final');
     if (saved) return JSON.parse(saved);
   } catch(e) {}
   return { claimedDays: [], lastVisit: null };
 }
 function saveCalendar() {
-  try { localStorage.setItem('calendarData', JSON.stringify(calendarData)); } catch(e) {}
+  if (!localStorageAvailable) return;
+  try { localStorage.setItem('calendarData_final', JSON.stringify(calendarData)); } catch(e) {}
 }
 
 function renderCalendar() {
@@ -591,19 +838,20 @@ function checkDailyLogin() {
   }
 }
 
+// ============ БАТЛ-ПАСС ============
 const BP_MAX_LEVEL = 30;
 const BP_XP_PER_LEVEL = 100;
 const BP_REWARDS = [
-  { level: 1, type: 'energy', amount: 50, label: '+50⚡' },
+  { level: 1, type: 'energy', amount: 50, label: '+50' },
   { level: 2, type: 'money', amount: 100, label: '+100₽' },
-  { level: 3, type: 'energy', amount: 100, label: '+100⚡' },
+  { level: 3, type: 'energy', amount: 100, label: '+100' },
   { level: 5, type: 'booster', booster: 'x2energy', label: 'x2' },
   { level: 7, type: 'money', amount: 300, label: '+300₽' },
   { level: 10, type: 'energy', amount: 300, label: '+300' },
   { level: 12, type: 'booster', booster: 'rain', label: '🌧️ Дождь' },
   { level: 15, type: 'money', amount: 500, label: '+500₽' },
-  { level: 18, type: 'energy', amount: 500, label: '+500⚡' },
-  { level: 20, type: 'booster', booster: 'infinite', label: '∞ 30с' },
+  { level: 18, type: 'energy', amount: 500, label: '+500' },
+  { level: 20, type: 'booster', booster: 'infinite', label: ' 30с' },
   { level: 25, type: 'money', amount: 1000, label: '+1000₽' },
   { level: 30, type: 'energy', amount: 1000, label: '+1000' },
 ];
@@ -638,14 +886,36 @@ const BP_QUEST_POOL = [
 
 let bpData = loadBP();
 function loadBP() {
+  if (!localStorageAvailable) return generateFreshBP(getTodayStr());
   try {
-    const saved = localStorage.getItem('bpData');
-    if (saved) return JSON.parse(saved);
-  } catch(e) {}
-  return { level: 1, xp: 0, quests: [], lastDate: null, claimedRewards: [] };
+    const saved = localStorage.getItem('bpData_final');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const today = getTodayStr();
+      if (parsed.lastDate !== today) {
+        return generateFreshBP(today);
+      }
+      return parsed;
+    }
+  } catch(e) { console.error('BP load error:', e); }
+  return generateFreshBP(getTodayStr());
 }
+
+function generateFreshBP(today) {
+  const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0) * 1337;
+  const rng = seededRandom(seed);
+  const shuffled = [...BP_QUEST_POOL].sort(() => rng() - 0.5);
+  return {
+    level: 1, xp: 0,
+    quests: shuffled.slice(0, 8).map(q => ({ ...q, progress: 0, done: false })),
+    lastDate: today,
+    claimedRewards: []
+  };
+}
+
 function saveBP() {
-  try { localStorage.setItem('bpData', JSON.stringify(bpData)); } catch(e) {}
+  if (!localStorageAvailable) return;
+  try { localStorage.setItem('bpData_final', JSON.stringify(bpData)); } catch(e) {}
 }
 
 function seededRandom(seed) {
@@ -654,17 +924,6 @@ function seededRandom(seed) {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
-}
-
-function generateDailyQuests() {
-  const today = getTodayStr();
-  if (bpData.lastDate === today && bpData.quests.length > 0) return;
-  const seed = today.split('-').reduce((a, b) => a + parseInt(b), 0);
-  const rng = seededRandom(seed);
-  const shuffled = [...BP_QUEST_POOL].sort(() => rng() - 0.5);
-  bpData.quests = shuffled.slice(0, 8).map(q => ({ ...q, progress: 0, done: false }));
-  bpData.lastDate = today;
-  saveBP();
 }
 
 function updateBPQuest(questId, amount) {
@@ -691,7 +950,7 @@ function addBPXp(amount) {
     if (reward && !bpData.claimedRewards.includes(bpData.level)) {
       bpData.claimedRewards.push(bpData.level);
       applyReward(reward);
-      toast(` Уровень БП ${bpData.level}! Награда: ${reward.label}`);
+      toast(`🏆 Уровень БП ${bpData.level}! Награда: ${reward.label}`);
     }
   }
   if (bpData.level >= BP_MAX_LEVEL) bpData.xp = BP_XP_PER_LEVEL;
@@ -725,112 +984,6 @@ function renderBPQuests() {
       <div class="progress">${Math.min(q.progress, q.target)}/${q.target} | +${q.xp}XP ${q.done ? '✅' : ''}</div>
     </div>`
   ).join('');
-}
-
-class GameItem {
-  constructor(x, y, tier) {
-    this.x = x; this.y = y;
-    this.vx = (Math.random() - 0.5) * 2;
-    this.vy = 0;
-    this.tier = tier;
-    this.denom = DENOMS[tier];
-    this.isCoin = this.denom.isCoin;
-    this.radius = this.denom.radius || 0;
-    this.width = this.denom.width || 0;
-    this.height = this.denom.height || 0;
-    this.color = this.denom.color;
-    this.merging = false;
-    this.rotation = 0;
-    this.rotSpeed = this.isCoin ? (Math.random() - 0.5) * 0.15 : 0;
-  }
-  update() {
-    if (this.merging) return;
-    this.vy += 0.3;
-    this.x += this.vx; this.y += this.vy;
-    this.rotation += this.rotSpeed;
-    if (state.magnetLevel > 0) {
-      const range = state.magnetLevel * 50;
-      for (const other of state.coins) {
-        if (other === this || other.merging) continue;
-        const dx = other.x - this.x, dy = other.y - this.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < range && dist > 0) {
-          const force = (range - dist) / range * 0.1;
-          this.vx += (dx/dist) * force;
-          this.vy += (dy/dist) * force;
-        }
-      }
-    }
-    if (this.isCoin) {
-      if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.5; }
-      if (this.x + this.radius > W) { this.x = W - this.radius; this.vx *= -0.5; }
-      if (this.y + this.radius > TABLE_Y) {
-        this.y = TABLE_Y - this.radius;
-        this.vy *= -0.4; this.vx *= 0.8; this.rotSpeed *= 0.9;
-        if (Math.abs(this.vy) < 1) this.vy = 0;
-      }
-    } else {
-      const hw = this.width/2, hh = this.height/2;
-      if (this.x - hw < 0) { this.x = hw; this.vx *= -0.5; }
-      if (this.x + hw > W) { this.x = W - hw; this.vx *= -0.5; }
-      if (this.y + hh > TABLE_Y) {
-        this.y = TABLE_Y - hh;
-        this.vy *= -0.4; this.vx *= 0.8;
-        if (Math.abs(this.vy) < 1) this.vy = 0;
-      }
-    }
-  }
-  draw() {
-    const img = images[this.denom.value];
-    const imgReady = img && img.complete && img.naturalWidth > 0;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    if (this.isCoin) {
-      ctx.rotate(this.rotation);
-      ctx.beginPath(); ctx.arc(3, 3, this.radius, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
-      if (imgReady) {
-        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.clip();
-        ctx.drawImage(img, -this.radius, -this.radius, this.radius*2, this.radius*2);
-      } else {
-        const grad = ctx.createRadialGradient(-this.radius/3, -this.radius/3, 2, 0, 0, this.radius);
-        grad.addColorStop(0, '#fff');
-        grad.addColorStop(0.3, this.color);
-        grad.addColorStop(1, '#000');
-        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2);
-        ctx.fillStyle = grad; ctx.fill();
-        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${this.radius*0.55}px Arial`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
-        ctx.fillText(this.denom.name, 0, 0);
-        ctx.shadowBlur = 0;
-      }
-    } else {
-      const hw = this.width/2, hh = this.height/2;
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(-hw+3, -hh+3, this.width, this.height);
-      if (imgReady) {
-        ctx.drawImage(img, -hw, -hh, this.width, this.height);
-      } else {
-        const grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
-        grad.addColorStop(0, this.color);
-        grad.addColorStop(1, '#000');
-        ctx.fillStyle = grad;
-        ctx.fillRect(-hw, -hh, this.width, this.height);
-        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
-        ctx.strokeRect(-hw, -hh, this.width, this.height);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
-        ctx.fillText(this.denom.name, 0, 0);
-        ctx.shadowBlur = 0;
-      }
-    }
-    ctx.restore();
-  }
 }
 
 function checkCollisions() {
@@ -897,6 +1050,7 @@ function mergeItems(a, b) {
     toast('✨ ДВОЙНОЕ СЛИЯНИЕ!');
   }
   a.merging = true; b.merging = true;
+  if (!state.particles) state.particles = [];
   for (let i = 0; i < 20; i++) {
     state.particles.push({
       x:mx,y:my,vx:(Math.random()-0.5)*10,vy:(Math.random()-0.5)*10,life:30,color:'#ffd700'
@@ -910,8 +1064,6 @@ function mergeItems(a, b) {
     state.totalMerges++;
     addXP(10);
     updateQuest('merge3', 1);
-    updateQuest('merge5', 1);
-    updateQuest('bill1', finalTier === DENOMS.length-1 ? 1 : 0);
     updateBPQuest('bp_merge3', 1);
     updateBPQuest('bp_merge5', 1);
     updateBPQuest('bp_merge10', 1);
@@ -1011,7 +1163,7 @@ function dropCoin() {
   let tier = 0;
   if (state.critLevel > 0 && Math.random() < state.critLevel*0.02) {
     tier = 1;
-    toast('🎲 КРИТИЧЕСКИЙ БРОСОК!');
+    toast(' КРИТИЧЕСКИЙ БРОСОК!');
   }
   const item = new GameItem(state.dropX, 30, tier);
   state.coins.push(item);
@@ -1099,7 +1251,7 @@ function upgradeCrit() {
     updateBPQuest('bp_money500', price);
     updateBPQuest('bp_money1000', price);
     updateBPQuest('bp_money2000', price);
-    toast('🎲 Шанс крита увеличен!');
+    toast(' Шанс крита увеличен!');
     updateUI();
   } else toast('Нужно ' + price + '₽');
 }
@@ -1166,13 +1318,14 @@ function doPrestige() {
   state.prestige++;
   state.prestigeMult += 0.5;
   state.bills = 0; state.wallet = 0; state.coins = [];
-  state.clickLevel = 1; state.autoLevel = 0;
+  state.clickLevel = 1; state.autoLevel = 0; state.autoEnabled = false;
   state.maxEnergyLevel = 1; state.regenLevel = 1;
   state.critLevel = 0; state.magnetLevel = 0; state.doubleLevel = 0;
   state.maxEnergy = 100; state.energy = 100;
   state.level = 1; state.xp = 0;
   toast(`👑 Престиж ${state.prestige}! Множитель: x${state.prestigeMult}`);
   updateUI();
+  updateAutoToggle();
 }
 
 function updateQuest(id, amount) {
@@ -1202,12 +1355,12 @@ const ACHIEVEMENTS = [
   { id: 'drops_500', name: '🌊 500 бросков', check: () => state.totalDrops >= 500, reward: 100 },
   { id: 'drops_1000', name: '🌊 1000 бросков', check: () => state.totalDrops >= 1000, reward: 200 },
   { id: 'coin_2', name: '🟠 Монета 2₽', check: () => state.maxCoinTier >= 1, reward: 10 },
-  { id: 'coin_5', name: ' Монета 5₽', check: () => state.maxCoinTier >= 2, reward: 15 },
+  { id: 'coin_5', name: '🟡 Монета 5₽', check: () => state.maxCoinTier >= 2, reward: 15 },
   { id: 'coin_10', name: '🟡 Монета 10₽', check: () => state.maxCoinTier >= 3, reward: 20 },
   { id: 'coin_50', name: ' Купюра 50₽', check: () => state.maxCoinTier >= 4, reward: 30 },
   { id: 'coin_100', name: '💜 Монета 100₽', check: () => state.maxCoinTier >= 5, reward: 50 },
   { id: 'coin_500', name: '🟣 Монета 500₽', check: () => state.maxCoinTier >= 7, reward: 100 },
-  { id: 'coin_1000', name: ' Монета 1000₽', check: () => state.maxCoinTier >= 8, reward: 150 },
+  { id: 'coin_1000', name: '💙 Монета 1000₽', check: () => state.maxCoinTier >= 8, reward: 150 },
   { id: 'coin_2000', name: '💚 Монета 2000₽', check: () => state.maxCoinTier >= 9, reward: 200 },
   { id: 'first_bill', name: '💰 Первая 5000₽', check: () => state.bills >= 1, reward: 200 },
   { id: 'bills_5', name: '💎 5 купюр', check: () => state.bills >= 5, reward: 500 },
@@ -1239,7 +1392,7 @@ function checkAchievements() {
 
 function renderAchievements() {
   document.getElementById('achievements').innerHTML = ACHIEVEMENTS.map(a =>
-    `<div class="ach ${state.achievements[a.id] ? 'done' : ''}">${a.name} (+${a.reward}⚡)</div>`
+    `<div class="ach ${state.achievements[a.id] ? 'done' : ''}">${a.name} (+${a.reward})</div>`
   ).join('');
 }
 
@@ -1259,7 +1412,7 @@ function buyEnergy(amount, cost) {
 function openModal(id) {
   document.getElementById(id).classList.add('show');
   if (id === 'calendarModal') renderCalendar();
-  if (id === 'bpModal') { generateDailyQuests(); renderBP(); }
+  if (id === 'bpModal') { renderBP(); }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
@@ -1273,7 +1426,31 @@ function claimWelcome() {
   closeModal('welcomeModal');
   toast('🎉 Приветственный пакет получен!');
   updateUI();
-  saveState();
+  updateAutoToggle();
+  saveState(true);
+}
+
+function toggleAuto() {
+  state.autoEnabled = !state.autoEnabled;
+  updateAutoToggle();
+  toast(state.autoEnabled ? '🤖 Автокликер ВКЛ' : '🤖 Автокликер ВЫКЛ');
+}
+
+function updateAutoToggle() {
+  const btn = document.getElementById('autoToggle');
+  if (state.autoLevel === 0) {
+    btn.textContent = '🤖 Автокликер: не куплен';
+    btn.className = 'auto-toggle off';
+    btn.disabled = true;
+  } else if (state.autoEnabled) {
+    btn.textContent = `🤖 Автокликер: ВКЛ (${(state.autoLevel*0.5).toFixed(1)}/сек)`;
+    btn.className = 'auto-toggle on';
+    btn.disabled = false;
+  } else {
+    btn.textContent = `🤖 Автокликер: ВЫКЛ (ур.${state.autoLevel})`;
+    btn.className = 'auto-toggle off';
+    btn.disabled = false;
+  }
 }
 
 document.getElementById('dropBtn').addEventListener('click', dropCoin);
@@ -1321,6 +1498,7 @@ function updateUI() {
   document.getElementById('totalMerges').textContent = state.totalMerges;
   document.getElementById('maxCoin').textContent = DENOMS[state.maxCoinTier].name;
   document.getElementById('btnPrestige').textContent = `Престиж (${state.bills}/10)`;
+  updateAutoToggle();
   checkAchievements();
 }
 
@@ -1358,7 +1536,7 @@ function gameLoop() {
     }
   }
 
-  if (state.autoLevel > 0) {
+  if (state.autoLevel > 0 && state.autoEnabled) {
     autoDropTimer += dt;
     const interval = 1 / (state.autoLevel * 0.5);
     if (autoDropTimer >= interval) {
@@ -1366,6 +1544,8 @@ function gameLoop() {
       state.dropX = Math.random() * (W-60) + 30;
       dropCoin();
     }
+  } else {
+    autoDropTimer = 0;
   }
 
   ctx.clearRect(0, 0, W, H);
@@ -1394,6 +1574,7 @@ function gameLoop() {
   }
   state.coins.forEach(item => { item.update(); item.draw(); });
   checkCollisions();
+  if (!state.particles) state.particles = [];
   for (let i = state.particles.length-1; i >= 0; i--) {
     const p = state.particles[i];
     p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.life--;
@@ -1429,6 +1610,10 @@ if (!state.welcomeClaimed) {
 }
 
 console.log('=== GAME STARTED ===');
+console.log('localStorage доступен:', localStorageAvailable);
+console.log('Загружено монеток:', state.coins.length);
+console.log('Энергия:', state.energy);
+console.log('Кошелёк:', state.wallet);
 gameLoop();
 toast('🎮 Нажми кнопку или пробел!');
 </script>
